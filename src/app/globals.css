@@ -179,3 +179,31 @@
   font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Shake animation for form validation ────────────────────────────────── */
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* ── Mobile virtual keyboard handling ───────────────────────────────────── */
+/* Use dynamic viewport height so the layout shrinks when the
+   on-screen keyboard appears, preventing distortion. */
+
+@supports (min-height: 100dvh) {
+  .min-h-screen-safe {
+    min-height: 100dvh;
+  }
+}
+
+@supports not (min-height: 100dvh) {
+  .min-h-screen-safe {
+    min-height: 100vh;
+  }
+}

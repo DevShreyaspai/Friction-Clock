@@ -22,6 +22,7 @@ import {
   Brain,
   Flag,
   Trash2,
+  PanelLeft,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -392,11 +400,15 @@ function CircularTimer({
   phaseLabel?: string;
 }) {
   const size = 280;
+  const mobileSize = 220;
   const strokeWidth = 6;
   const radius = (size - strokeWidth) / 2;
+  const mobileRadius = (mobileSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
+  const mobileCircumference = 2 * Math.PI * mobileRadius;
   const progress = timeLeft / totalTime;
   const strokeDashoffset = circumference * (1 - progress);
+  const mobileStrokeDashoffset = mobileCircumference * (1 - progress);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -422,93 +434,214 @@ function CircularTimer({
         </div>
       </div>
 
-      {/* SVG Timer Ring */}
-      <div className="relative" style={{ width: size, height: size }}>
+      {/* SVG Timer Ring — desktop */}
+      <div className="relative hidden sm:block" style={{ width: size, height: size }}>
         <svg
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
           className="transform -rotate-90"
         >
-          {/* Background track */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="rgba(255,255,255,0.05)"
-            strokeWidth={strokeWidth}
-          />
-          {/* Subtle tick marks */}
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} />
           {Array.from({ length: 60 }).map((_, i) => {
             const angle = (i * 6 * Math.PI) / 180;
             const isMajor = i % 5 === 0;
             const innerR = radius - (isMajor ? 14 : 10);
             const outerR = radius - 8;
             return (
-              <line
-                key={i}
-                x1={size / 2 + innerR * Math.cos(angle)}
-                y1={size / 2 + innerR * Math.sin(angle)}
-                x2={size / 2 + outerR * Math.cos(angle)}
-                y2={size / 2 + outerR * Math.sin(angle)}
-                stroke={
-                  isMajor
-                    ? "rgba(255,255,255,0.12)"
-                    : "rgba(255,255,255,0.04)"
-                }
-                strokeWidth={isMajor ? 1.5 : 0.5}
-              />
+              <line key={i} x1={size / 2 + innerR * Math.cos(angle)} y1={size / 2 + innerR * Math.sin(angle)} x2={size / 2 + outerR * Math.cos(angle)} y2={size / 2 + outerR * Math.sin(angle)} stroke={isMajor ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)"} strokeWidth={isMajor ? 1.5 : 0.5} />
             );
           })}
-          {/* Progress arc */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="#00E5FF"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            className="transition-[stroke-dashoffset] duration-1000 ease-linear"
-            style={{
-              filter: "drop-shadow(0 0 6px rgba(0,229,255,0.4))",
-            }}
-          />
-          {/* Glowing endpoint dot */}
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#00E5FF" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="transition-[stroke-dashoffset] duration-1000 ease-linear" style={{ filter: "drop-shadow(0 0 6px rgba(0,229,255,0.4))" }} />
           {timeLeft > 0 && (
-            <circle
-              cx={
-                size / 2 + radius * Math.cos(-Math.PI / 2 + 2 * Math.PI * progress)
-              }
-              cy={
-                size / 2 + radius * Math.sin(-Math.PI / 2 + 2 * Math.PI * progress)
-              }
-              r={4}
-              fill="#00E5FF"
-              style={{
-                filter: "drop-shadow(0 0 8px rgba(0,229,255,0.8))",
-              }}
-            />
+            <circle cx={size / 2 + radius * Math.cos(-Math.PI / 2 + 2 * Math.PI * progress)} cy={size / 2 + radius * Math.sin(-Math.PI / 2 + 2 * Math.PI * progress)} r={4} fill="#00E5FF" style={{ filter: "drop-shadow(0 0 8px rgba(0,229,255,0.8))" }} />
           )}
         </svg>
-
-        {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className="text-5xl font-bold tracking-wider text-white"
-            style={{ fontFamily: "var(--font-geist-mono)" }}
-          >
-            {displayTime}
-          </span>
-          <span className="text-[10px] text-muted-foreground tracking-widest uppercase mt-2">
-            {isRunning ? "Focusing" : timeLeft === totalTime ? "Ready" : "Paused"}
-          </span>
+          <span className="text-5xl font-bold tracking-wider text-white" style={{ fontFamily: "var(--font-geist-mono)" }}>{displayTime}</span>
+          <span className="text-[10px] text-muted-foreground tracking-widest uppercase mt-2">{isRunning ? "Focusing" : timeLeft === totalTime ? "Ready" : "Paused"}</span>
+        </div>
+      </div>
+
+      {/* SVG Timer Ring — mobile (smaller) */}
+      <div className="relative sm:hidden" style={{ width: mobileSize, height: mobileSize }}>
+        <svg
+          width={mobileSize}
+          height={mobileSize}
+          viewBox={`0 0 ${mobileSize} ${mobileSize}`}
+          className="transform -rotate-90"
+        >
+          <circle cx={mobileSize / 2} cy={mobileSize / 2} r={mobileRadius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} />
+          {Array.from({ length: 60 }).map((_, i) => {
+            const angle = (i * 6 * Math.PI) / 180;
+            const isMajor = i % 5 === 0;
+            const innerR = mobileRadius - (isMajor ? 10 : 7);
+            const outerR = mobileRadius - 5;
+            return (
+              <line key={i} x1={mobileSize / 2 + innerR * Math.cos(angle)} y1={mobileSize / 2 + innerR * Math.sin(angle)} x2={mobileSize / 2 + outerR * Math.cos(angle)} y2={mobileSize / 2 + outerR * Math.sin(angle)} stroke={isMajor ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)"} strokeWidth={isMajor ? 1 : 0.5} />
+            );
+          })}
+          <circle cx={mobileSize / 2} cy={mobileSize / 2} r={mobileRadius} fill="none" stroke="#00E5FF" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={mobileCircumference} strokeDashoffset={mobileStrokeDashoffset} className="transition-[stroke-dashoffset] duration-1000 ease-linear" style={{ filter: "drop-shadow(0 0 6px rgba(0,229,255,0.4))" }} />
+          {timeLeft > 0 && (
+            <circle cx={mobileSize / 2 + mobileRadius * Math.cos(-Math.PI / 2 + 2 * Math.PI * progress)} cy={mobileSize / 2 + mobileRadius * Math.sin(-Math.PI / 2 + 2 * Math.PI * progress)} r={3} fill="#00E5FF" style={{ filter: "drop-shadow(0 0 8px rgba(0,229,255,0.8))" }} />
+          )}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-4xl font-bold tracking-wider text-white" style={{ fontFamily: "var(--font-geist-mono)" }}>{displayTime}</span>
+          <span className="text-[9px] text-muted-foreground tracking-widest uppercase mt-1.5">{isRunning ? "Focusing" : timeLeft === totalTime ? "Ready" : "Paused"}</span>
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Sidebar Content (shared between desktop & mobile) ───────────────────────
+
+function SidebarContent({
+  tasks,
+  searchQuery,
+  setSearchQuery,
+  selectedTaskId,
+  setSelectedTaskId,
+  onAdd,
+  onClearAll,
+}: {
+  tasks: Task[];
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  selectedTaskId: string | null;
+  setSelectedTaskId: (id: string | null) => void;
+  onAdd: () => void;
+  onClearAll: () => void;
+}) {
+  const activeTasks = tasks.filter(
+    (t) =>
+      t.status === "active" &&
+      t.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const completedTasks = tasks.filter(
+    (t) =>
+      t.status === "completed" &&
+      t.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <>
+      {/* Sidebar Header */}
+      <div className="px-4 pt-5 pb-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold tracking-widest uppercase text-muted-foreground">
+            Task Log
+          </h2>
+          <Button
+            size="sm"
+            onClick={onAdd}
+            className="h-7 px-2.5 text-[11px] bg-electric/10 text-electric hover:bg-electric/20 border-0 shadow-none"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Add
+          </Button>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 text-xs bg-white/[0.04] border-white/[0.06] text-white placeholder:text-muted-foreground/50 focus-visible:ring-electric/30"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <Separator className="bg-white/[0.06]" />
+
+      {/* Task List */}
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-1">
+          {activeTasks.length > 0 && (
+            <div className="space-y-0.5">
+              <div className="px-4 py-2 flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-electric animate-pulse" />
+                <span className="text-[10px] font-semibold tracking-widest uppercase text-electric/80">
+                  Active
+                </span>
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  {activeTasks.length}
+                </span>
+              </div>
+              {activeTasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  isSelected={selectedTaskId === task.id}
+                  onClick={() => setSelectedTaskId(task.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {completedTasks.length > 0 && (
+            <div className="space-y-0.5 mt-3">
+              <div className="px-4 py-2 flex items-center gap-2">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500/50" />
+                <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
+                  Completed
+                </span>
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  {completedTasks.length}
+                </span>
+              </div>
+              {completedTasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  isSelected={selectedTaskId === task.id}
+                  onClick={() => setSelectedTaskId(task.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {activeTasks.length === 0 && completedTasks.length === 0 && (
+            <div className="px-4 py-8 text-center">
+              <p className="text-xs text-muted-foreground">
+                No tasks match your search.
+              </p>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Sidebar Footer */}
+      <div className="border-t border-white/[0.06] bg-surface/50">
+        <div className="px-4 py-3 flex items-center justify-between text-[10px] text-muted-foreground">
+          <span>Total friction today</span>
+          <span className="text-electric font-semibold font-mono">
+            {tasks.reduce((acc, t) => acc + t.friction, 0)} pts
+          </span>
+        </div>
+        {/* Clear All Data */}
+        <div className="px-4 pb-3 pt-0">
+          <button
+            onClick={onClearAll}
+            className="flex items-center gap-1.5 text-[9px] text-muted-foreground/30 hover:text-red-400/70 transition-colors w-full justify-center py-1 rounded hover:bg-red-400/[0.04]"
+          >
+            <Trash2 className="h-2.5 w-2.5" />
+            Clear All Data
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -528,11 +661,14 @@ export default function Home() {
   // Sidebar state
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Workspace form state
   const [taskInput, setTaskInput] = useState("");
   const [frictionValue, setFrictionValue] = useState<number[]>([5]);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("form");
+  const [showValidationError, setShowValidationError] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
 
   // Timer state (shared between micro-commit & deep work)
   const [timeLeft, setTimeLeft] = useState(MICRO_COMMIT_DURATION);
@@ -639,7 +775,13 @@ export default function Home() {
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleCalibrate = () => {
-    if (!taskInput.trim()) return;
+    if (!taskInput.trim()) {
+      setShowValidationError(true);
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+      return;
+    }
+    setShowValidationError(false);
     setTimerDuration(MICRO_COMMIT_DURATION);
     setTimeLeft(MICRO_COMMIT_DURATION);
     setIsRunning(false);
@@ -705,16 +847,25 @@ export default function Home() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col bg-black">
+    <div className="min-h-screen-safe flex flex-col bg-black">
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-black/80 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-6 py-3">
-          {/* Left: Brand */}
+        <div className="flex items-center justify-between px-4 md:px-6 py-3">
+          {/* Left: Brand + Mobile sidebar toggle */}
           <div className="flex items-center gap-3">
+            {/* Mobile sidebar toggle (visible < md) */}
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="md:hidden flex items-center justify-center h-8 w-8 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+              aria-label="Open task log"
+            >
+              <PanelLeft className="h-4 w-4 text-white/70" />
+            </button>
+
             <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-electric/10 ring-1 ring-electric/20">
               <Clock className="h-4 w-4 text-electric" />
             </div>
-            <div>
+            <div className="hidden sm:block">
               <h1 className="text-sm font-bold tracking-wide text-white uppercase">
                 Friction Clock
               </h1>
@@ -767,123 +918,45 @@ export default function Home() {
       </header>
 
       {/* ── Main Content ────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col lg:flex-row gap-0">
-        {/* ── Left Sidebar: Task Log ────────────────────────────────────── */}
-        <aside className="w-full lg:w-[30%] xl:w-[28%] border-r border-white/[0.06] flex flex-col min-h-0">
-          {/* Sidebar Header */}
-          <div className="px-4 pt-5 pb-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold tracking-widest uppercase text-muted-foreground">
+      <main className="flex-1 flex flex-col md:flex-row gap-0">
+
+        {/* ── Mobile Sidebar Sheet (< md) ────────────────────────────────── */}
+        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+          <SheetContent side="left" className="w-[85vw] max-w-sm bg-black border-white/[0.06] p-0">
+            <SheetHeader className="px-4 pt-4 pb-2">
+              <SheetTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground text-left">
                 Task Log
-              </h2>
-              <Button
-                size="sm"
-                onClick={resetWorkspace}
-                className="h-7 px-2.5 text-[11px] bg-electric/10 text-electric hover:bg-electric/20 border-0 shadow-none"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Add
-              </Button>
-            </div>
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Your active and completed tasks
+              </SheetDescription>
+            </SheetHeader>
+            <SidebarContent
+              tasks={tasks}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              selectedTaskId={selectedTaskId}
+              setSelectedTaskId={(id) => {
+                setSelectedTaskId(id);
+                setMobileSidebarOpen(false);
+              }}
+              onAdd={resetWorkspace}
+              onClearAll={handleClearAllData}
+            />
+          </SheetContent>
+        </Sheet>
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search tasks..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 pl-8 text-xs bg-white/[0.04] border-white/[0.06] text-white placeholder:text-muted-foreground/50 focus-visible:ring-electric/30"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <Separator className="bg-white/[0.06]" />
-
-          {/* Task List */}
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
-              {activeTasks.length > 0 && (
-                <div className="space-y-0.5">
-                  <div className="px-4 py-2 flex items-center gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-electric animate-pulse" />
-                    <span className="text-[10px] font-semibold tracking-widest uppercase text-electric/80">
-                      Active
-                    </span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">
-                      {activeTasks.length}
-                    </span>
-                  </div>
-                  {activeTasks.map((task) => (
-                    <TaskItem
-                      key={task.id}
-                      task={task}
-                      isSelected={selectedTaskId === task.id}
-                      onClick={() => setSelectedTaskId(task.id)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {completedTasks.length > 0 && (
-                <div className="space-y-0.5 mt-3">
-                  <div className="px-4 py-2 flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3 text-emerald-500/50" />
-                    <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
-                      Completed
-                    </span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">
-                      {completedTasks.length}
-                    </span>
-                  </div>
-                  {completedTasks.map((task) => (
-                    <TaskItem
-                      key={task.id}
-                      task={task}
-                      isSelected={selectedTaskId === task.id}
-                      onClick={() => setSelectedTaskId(task.id)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {activeTasks.length === 0 && completedTasks.length === 0 && (
-                <div className="px-4 py-8 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    No tasks match your search.
-                  </p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-
-          {/* Sidebar Footer */}
-          <div className="border-t border-white/[0.06] bg-surface/50">
-            <div className="px-4 py-3 flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>Total friction today</span>
-              <span className="text-electric font-semibold font-mono">
-                {tasks.reduce((acc, t) => acc + t.friction, 0)} pts
-              </span>
-            </div>
-            {/* Clear All Data */}
-            <div className="px-4 pb-3 pt-0">
-              <button
-                onClick={handleClearAllData}
-                className="flex items-center gap-1.5 text-[9px] text-muted-foreground/30 hover:text-red-400/70 transition-colors w-full justify-center py-1 rounded hover:bg-red-400/[0.04]"
-              >
-                <Trash2 className="h-2.5 w-2.5" />
-                Clear All Data
-              </button>
-            </div>
-          </div>
+        {/* ── Desktop Sidebar (>= md) ───────────────────────────────────── */}
+        <aside className="hidden md:flex w-full md:w-[30%] xl:w-[28%] border-r border-white/[0.06] flex-col min-h-0">
+          <SidebarContent
+            tasks={tasks}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            selectedTaskId={selectedTaskId}
+            setSelectedTaskId={setSelectedTaskId}
+            onAdd={resetWorkspace}
+            onClearAll={handleClearAllData}
+          />
         </aside>
 
         {/* ── Main Workspace ────────────────────────────────────────────── */}
@@ -994,17 +1067,35 @@ export default function Home() {
                       <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
                         What task are you avoiding?
                       </label>
-                      <Input
-                        placeholder="e.g. Write the project proposal..."
-                        value={taskInput}
-                        onChange={(e) => setTaskInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && taskInput.trim()) {
-                            handleCalibrate();
-                          }
-                        }}
-                        className="h-11 text-sm bg-white/[0.03] border-white/[0.08] text-white placeholder:text-muted-foreground/40 focus-visible:ring-electric/30 focus-visible:border-electric/30"
-                      />
+                      <div className={cn(isShaking && "animate-shake")}>
+                        <Input
+                          placeholder="e.g. Write the project proposal..."
+                          value={taskInput}
+                          onChange={(e) => {
+                            setTaskInput(e.target.value);
+                            if (e.target.value.trim()) {
+                              setShowValidationError(false);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleCalibrate();
+                            }
+                          }}
+                          className={cn(
+                            "h-11 text-sm bg-white/[0.03] text-white placeholder:text-muted-foreground/40 focus-visible:ring-electric/30 focus-visible:border-electric/30",
+                            showValidationError
+                              ? "border-red-400/50 ring-1 ring-red-400/20"
+                              : "border-white/[0.08]"
+                          )}
+                        />
+                      </div>
+                      {showValidationError && (
+                        <p className="text-[11px] text-red-400/80 pl-1 flex items-center gap-1.5">
+                          <span className="inline-block h-1 w-1 rounded-full bg-red-400/60" />
+                          Please name the friction point before proceeding.
+                        </p>
+                      )}
                     </div>
 
                     <Separator className="bg-white/[0.04]" />
@@ -1086,11 +1177,10 @@ export default function Home() {
 
                     <Button
                       onClick={handleCalibrate}
-                      disabled={!taskInput.trim()}
                       className={cn(
                         "w-full h-12 text-sm font-bold tracking-wider uppercase",
                         "bg-electric text-black hover:bg-electric/90",
-                        "disabled:opacity-30 disabled:cursor-not-allowed",
+                        !taskInput.trim() && "opacity-40 cursor-not-allowed",
                         "shadow-[0_0_24px_rgba(0,229,255,0.2)] hover:shadow-[0_0_32px_rgba(0,229,255,0.35)]",
                         "transition-all duration-300"
                       )}
