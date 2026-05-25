@@ -21,6 +21,7 @@ import {
   Terminal,
   Brain,
   Flag,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +50,38 @@ interface Task {
 
 const MICRO_COMMIT_DURATION = 120; // 2 minutes
 const DEEP_WORK_DURATION = 1200; // 20 minutes
+
+// ─── LocalStorage Keys ───────────────────────────────────────────────────
+
+const LS_TASKS_KEY = "friction-clock-tasks";
+const LS_STREAK_KEY = "friction-clock-streak";
+
+/**
+ * Safely read and parse JSON from localStorage.
+ * Returns `null` if the key doesn't exist or the data is corrupt.
+ */
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Safely serialize and write JSON to localStorage.
+ */
+function saveToStorage<T>(key: string, value: T): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage full or blocked — fail silently
+  }
+}
 
 const INITIAL_TASKS: Task[] = [
   {
@@ -484,9 +517,13 @@ function CircularTimer({
 let taskIdCounter = 100;
 
 export default function Home() {
-  // ── Dynamic state ──────────────────────────────────────────────────────────
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [dailyStreak, setDailyStreak] = useState(7);
+  // ── Dynamic state (hydrated from localStorage) ────────────────────────────
+  const [tasks, setTasks] = useState<Task[]>(() =>
+    loadFromStorage<Task[]>(LS_TASKS_KEY, INITIAL_TASKS)
+  );
+  const [dailyStreak, setDailyStreak] = useState<number>(() =>
+    loadFromStorage<number>(LS_STREAK_KEY, 7)
+  );
 
   // Sidebar state
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -584,6 +621,17 @@ export default function Home() {
     setFrictionValue([5]);
   }, [clearTimer]);
 
+  // ── LocalStorage Sync ─────────────────────────────────────────────────────
+  // Automatically persist tasks and streak whenever they change
+  useEffect(() => {
+    saveToStorage(LS_TASKS_KEY, tasks);
+  }, [tasks]);
+
+  useEffect(() => {
+    saveToStorage(LS_STREAK_KEY, dailyStreak);
+  }, [dailyStreak]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => clearTimer();
   }, [clearTimer]);
@@ -636,6 +684,21 @@ export default function Home() {
     };
     setTasks((prev) => [newTask, ...prev]);
     setDailyStreak((prev) => prev + 1);
+    resetWorkspace();
+  };
+
+  /** Clear all persisted data and reset UI to zero */
+  const handleClearAllData = () => {
+    const confirmed = window.confirm(
+      "This will permanently erase all your tasks and streak data. Are you sure?"
+    );
+    if (!confirmed) return;
+
+    localStorage.removeItem(LS_TASKS_KEY);
+    localStorage.removeItem(LS_STREAK_KEY);
+    setTasks(INITIAL_TASKS);
+    setDailyStreak(7);
+    setSelectedTaskId(null);
     resetWorkspace();
   };
 
@@ -803,12 +866,22 @@ export default function Home() {
           </ScrollArea>
 
           {/* Sidebar Footer */}
-          <div className="px-4 py-3 border-t border-white/[0.06] bg-surface/50">
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+          <div className="border-t border-white/[0.06] bg-surface/50">
+            <div className="px-4 py-3 flex items-center justify-between text-[10px] text-muted-foreground">
               <span>Total friction today</span>
               <span className="text-electric font-semibold font-mono">
                 {tasks.reduce((acc, t) => acc + t.friction, 0)} pts
               </span>
+            </div>
+            {/* Clear All Data */}
+            <div className="px-4 pb-3 pt-0">
+              <button
+                onClick={handleClearAllData}
+                className="flex items-center gap-1.5 text-[9px] text-muted-foreground/30 hover:text-red-400/70 transition-colors w-full justify-center py-1 rounded hover:bg-red-400/[0.04]"
+              >
+                <Trash2 className="h-2.5 w-2.5" />
+                Clear All Data
+              </button>
             </div>
           </div>
         </aside>
