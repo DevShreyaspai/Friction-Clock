@@ -19,6 +19,8 @@ import {
   BookOpen,
   Eye,
   Terminal,
+  Brain,
+  Flag,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +34,7 @@ import { cn } from "@/lib/utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type WorkspaceView = "form" | "timer" | "complete";
+type WorkspaceView = "form" | "timer" | "victory" | "deepWork" | "deepComplete";
 
 interface Task {
   id: string;
@@ -45,9 +47,10 @@ interface Task {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const TIMER_DURATION = 120; // 2 minutes in seconds
+const MICRO_COMMIT_DURATION = 120; // 2 minutes
+const DEEP_WORK_DURATION = 1200; // 20 minutes
 
-const SAMPLE_TASKS: Task[] = [
+const INITIAL_TASKS: Task[] = [
   {
     id: "1",
     title: "Refactor auth middleware",
@@ -140,21 +143,6 @@ interface MicroCommitment {
   icon: React.ElementType;
 }
 
-/**
- * Core algorithmic logic: intercepts the user's friction rating (1-10)
- * and generates a tailored Micro-Commitment Step — a bite-sized,
- * psychologically-calibrated instruction designed to bypass the
- * specific type of resistance the user is experiencing.
- *
- * Low friction (1-4):  The barrier is shallow. A gentle nudge to simply
- *                      open materials and glance at the first page/line.
- * Moderate (5-7):     A mental block has formed. The strategy is to
- *                      eliminate all distractions and force a 60-second
- *                      stare-down with the problem.
- * High dread (8-10):  The entire project feels overwhelming. The ONLY
- *                      permissible action is typing one single sentence
- *                      or comment — nothing else matters.
- */
 function generateMicroCommitment(frictionRating: number): MicroCommitment {
   if (frictionRating <= 4) {
     return {
@@ -241,7 +229,6 @@ function MicroCommitmentCard({
         styles.border
       )}
     >
-      {/* Header row */}
       <div className="flex items-center gap-2.5 mb-2.5">
         <div
           className={cn(
@@ -263,8 +250,6 @@ function MicroCommitmentCard({
           </span>
         </div>
       </div>
-
-      {/* Action instruction */}
       <p className="text-[13px] leading-relaxed text-white/80 pl-[38px]">
         {action}
       </p>
@@ -364,12 +349,14 @@ function CircularTimer({
   isRunning,
   taskName,
   frictionLevel,
+  phaseLabel,
 }: {
   timeLeft: number;
   totalTime: number;
   isRunning: boolean;
   taskName: string;
   frictionLevel: number;
+  phaseLabel?: string;
 }) {
   const size = 280;
   const strokeWidth = 6;
@@ -382,12 +369,14 @@ function CircularTimer({
   const seconds = timeLeft % 60;
   const displayTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 
+  const label = phaseLabel ?? "Micro-Commitment";
+
   return (
     <div className="flex flex-col items-center gap-6">
       {/* Task context above timer */}
       <div className="text-center space-y-1">
         <p className="text-xs text-muted-foreground tracking-widest uppercase">
-          Micro-Commitment
+          {label}
         </p>
         <h3 className="text-sm font-medium text-white max-w-[260px] truncate">
           {taskName}
@@ -482,7 +471,7 @@ function CircularTimer({
             {displayTime}
           </span>
           <span className="text-[10px] text-muted-foreground tracking-widest uppercase mt-2">
-            {isRunning ? "Focusing" : timeLeft === TIMER_DURATION ? "Ready" : "Paused"}
+            {isRunning ? "Focusing" : timeLeft === totalTime ? "Ready" : "Paused"}
           </span>
         </div>
       </div>
@@ -492,7 +481,13 @@ function CircularTimer({
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
+let taskIdCounter = 100;
+
 export default function Home() {
+  // ── Dynamic state ──────────────────────────────────────────────────────────
+  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [dailyStreak, setDailyStreak] = useState(7);
+
   // Sidebar state
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -502,32 +497,41 @@ export default function Home() {
   const [frictionValue, setFrictionValue] = useState<number[]>([5]);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("form");
 
-  // Timer state
-  const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
+  // Timer state (shared between micro-commit & deep work)
+  const [timeLeft, setTimeLeft] = useState(MICRO_COMMIT_DURATION);
+  const [timerDuration, setTimerDuration] = useState(MICRO_COMMIT_DURATION);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
-  const remainingRef = useRef<number>(TIMER_DURATION);
+  const remainingRef = useRef<number>(MICRO_COMMIT_DURATION);
 
-  // Computed
-  const activeTasks = SAMPLE_TASKS.filter(
+  // ── Derived ────────────────────────────────────────────────────────────────
+
+  const activeTasks = tasks.filter(
     (t) =>
       t.status === "active" &&
       t.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const completedTasks = SAMPLE_TASKS.filter(
+  const completedTasks = tasks.filter(
     (t) =>
       t.status === "completed" &&
       t.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const selectedTask = SAMPLE_TASKS.find((t) => t.id === selectedTaskId);
-  const dailyStreak = 7;
-  const activeCount = SAMPLE_TASKS.filter((t) => t.status === "active").length;
-  const completedCount = SAMPLE_TASKS.filter(
-    (t) => t.status === "completed"
-  ).length;
+  const selectedTask = tasks.find((t) => t.id === selectedTaskId);
+  const activeCount = tasks.filter((t) => t.status === "active").length;
+  const completedCount = tasks.filter((t) => t.status === "completed").length;
+  const currentFriction = frictionValue[0];
+  const frictionLabel = FRICTION_LABELS[currentFriction] || "";
+  const frictionColor =
+    currentFriction <= 3
+      ? "text-emerald-400"
+      : currentFriction <= 5
+        ? "text-amber-400"
+        : currentFriction <= 7
+          ? "text-orange-400"
+          : "text-red-400";
 
-  // ── Timer Logic (accurate, based on real elapsed time) ────────────────────
+  // ── Timer Logic ────────────────────────────────────────────────────────────
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -551,10 +555,15 @@ export default function Home() {
       if (newTimeLeft <= 0) {
         clearTimer();
         setIsRunning(false);
-        setWorkspaceView("complete");
+        // Route to the correct completion view
+        if (timerDuration === MICRO_COMMIT_DURATION) {
+          setWorkspaceView("victory");
+        } else {
+          setWorkspaceView("deepComplete");
+        }
       }
-    }, 200); // Update frequently for smooth visuals
-  }, [timeLeft, clearTimer]);
+    }, 200);
+  }, [timeLeft, timerDuration, clearTimer]);
 
   const pauseTimer = useCallback(() => {
     if (startTimeRef.current !== null) {
@@ -568,36 +577,69 @@ export default function Home() {
   const resetWorkspace = useCallback(() => {
     clearTimer();
     setIsRunning(false);
-    setTimeLeft(TIMER_DURATION);
+    setTimeLeft(MICRO_COMMIT_DURATION);
+    setTimerDuration(MICRO_COMMIT_DURATION);
     setWorkspaceView("form");
     setTaskInput("");
     setFrictionValue([5]);
   }, [clearTimer]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => clearTimer();
   }, [clearTimer]);
 
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
   const handleCalibrate = () => {
     if (!taskInput.trim()) return;
-    setWorkspaceView("timer");
-    setTimeLeft(TIMER_DURATION);
+    setTimerDuration(MICRO_COMMIT_DURATION);
+    setTimeLeft(MICRO_COMMIT_DURATION);
     setIsRunning(false);
+    setWorkspaceView("timer");
   };
 
-  const currentFriction = frictionValue[0];
-  const frictionLabel = FRICTION_LABELS[currentFriction] || "";
+  /** Victory Lap: mark task as completed, increment streak, reset form */
+  const handleVictoryLap = () => {
+    const newTask: Task = {
+      id: String(++taskIdCounter),
+      title: taskInput.trim(),
+      status: "completed",
+      friction: currentFriction,
+      category: "Personal",
+      elapsed: "2:00",
+    };
+    setTasks((prev) => [newTask, ...prev]);
+    setDailyStreak((prev) => prev + 1);
+    resetWorkspace();
+  };
 
-  // Friction color interpolation: green → yellow → orange → red
-  const frictionColor =
-    currentFriction <= 3
-      ? "text-emerald-400"
-      : currentFriction <= 5
-        ? "text-amber-400"
-        : currentFriction <= 7
-          ? "text-orange-400"
-          : "text-red-400";
+  /** Lock In: transition to 20-min deep work countdown */
+  const handleLockIn = () => {
+    clearTimer();
+    setTimerDuration(DEEP_WORK_DURATION);
+    setTimeLeft(DEEP_WORK_DURATION);
+    remainingRef.current = DEEP_WORK_DURATION;
+    startTimeRef.current = null;
+    setIsRunning(false);
+    setWorkspaceView("deepWork");
+  };
+
+  /** Deep work complete: mark task as completed, increment streak, reset form */
+  const handleDeepComplete = () => {
+    const newTask: Task = {
+      id: String(++taskIdCounter),
+      title: taskInput.trim(),
+      status: "completed",
+      friction: currentFriction,
+      category: "Personal",
+      elapsed: "22:00",
+    };
+    setTasks((prev) => [newTask, ...prev]);
+    setDailyStreak((prev) => prev + 1);
+    resetWorkspace();
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen flex flex-col bg-black">
@@ -765,7 +807,7 @@ export default function Home() {
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>Total friction today</span>
               <span className="text-electric font-semibold font-mono">
-                {SAMPLE_TASKS.reduce((acc, t) => acc + t.friction, 0)} pts
+                {tasks.reduce((acc, t) => acc + t.friction, 0)} pts
               </span>
             </div>
           </div>
@@ -859,7 +901,6 @@ export default function Home() {
             /* ── Task Creation Form ── */
             <div className="w-full max-w-lg px-6 py-8">
               <div className="space-y-8">
-                {/* Form Header */}
                 <div className="text-center space-y-2">
                   <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-electric/10 ring-1 ring-electric/20 mb-2">
                     <Zap className="h-5 w-5 text-electric" />
@@ -873,7 +914,6 @@ export default function Home() {
                   </p>
                 </div>
 
-                {/* Form Card */}
                 <Card className="bg-surface border-white/[0.06] shadow-none overflow-hidden">
                   <div className="p-6 space-y-6">
                     {/* Task Input */}
@@ -917,7 +957,6 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* Slider */}
                       <div className="relative px-1">
                         <Slider
                           value={frictionValue}
@@ -927,7 +966,6 @@ export default function Home() {
                           step={1}
                           className="w-full [&_[data-slot=slider-track]]:bg-white/[0.06] [&_[data-slot=slider-track]]:h-2 [&_[data-slot=slider-track]]:rounded-full [&_[data-slot=slider-range]]:bg-gradient-to-r [&_[data-slot=slider-range]]:from-emerald-400 [&_[data-slot=slider-range]]:via-amber-400 [&_[data-slot=slider-range]]:to-red-500 [&_[data-slot=slider-thumb]]:h-5 [&_[data-slot=slider-thumb]]:w-5 [&_[data-slot=slider-thumb]]:border-2 [&_[data-slot=slider-thumb]]:border-white [&_[data-slot=slider-thumb]]:bg-surface [&_[data-slot=slider-thumb]]:shadow-[0_0_12px_rgba(0,229,255,0.3)] [&_[data-slot=slider-thumb]]:hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] [&_[data-slot=slider-thumb]]:transition-shadow"
                         />
-                        {/* Scale labels */}
                         <div className="flex justify-between mt-2 px-0.5">
                           <span className="text-[9px] text-emerald-400/70 font-medium">
                             Easy
@@ -941,7 +979,6 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* Friction label pill */}
                       <div className="flex justify-center">
                         <div
                           className={cn(
@@ -974,7 +1011,6 @@ export default function Home() {
 
                     <Separator className="bg-white/[0.04]" />
 
-                    {/* Calibrate Button */}
                     <Button
                       onClick={handleCalibrate}
                       disabled={!taskInput.trim()}
@@ -992,21 +1028,19 @@ export default function Home() {
                   </div>
                 </Card>
 
-                {/* Footer hint */}
                 <p className="text-[10px] text-muted-foreground/30 text-center tracking-wider">
                   2 minutes is all it takes to break through the barrier
                 </p>
               </div>
             </div>
           ) : workspaceView === "timer" ? (
-            /* ── Timer View ── */
+            /* ── 2-Minute Micro-Commitment Timer ── */
             <div className="w-full max-w-xl px-6 py-8 flex flex-col items-center gap-8">
-              {/* Back button */}
               <button
                 onClick={() => {
                   clearTimer();
                   setIsRunning(false);
-                  setTimeLeft(TIMER_DURATION);
+                  setTimeLeft(MICRO_COMMIT_DURATION);
                   setWorkspaceView("form");
                 }}
                 className="self-start flex items-center gap-1.5 text-xs text-muted-foreground hover:text-white transition-colors group"
@@ -1015,19 +1049,17 @@ export default function Home() {
                 Back to form
               </button>
 
-              {/* Micro-Commitment Instruction */}
               <MicroCommitmentCard frictionRating={currentFriction} />
 
-              {/* Circular Timer */}
               <CircularTimer
                 timeLeft={timeLeft}
-                totalTime={TIMER_DURATION}
+                totalTime={MICRO_COMMIT_DURATION}
                 isRunning={isRunning}
                 taskName={taskInput}
                 frictionLevel={currentFriction}
+                phaseLabel="Micro-Commitment"
               />
 
-              {/* Action Button */}
               <div className="flex flex-col items-center gap-3 w-full max-w-xs">
                 {!isRunning ? (
                   <Button
@@ -1037,11 +1069,11 @@ export default function Home() {
                       "bg-electric text-black hover:bg-electric/90",
                       "shadow-[0_0_24px_rgba(0,229,255,0.25)] hover:shadow-[0_0_40px_rgba(0,229,255,0.4)]",
                       "transition-all duration-300",
-                      timeLeft < TIMER_DURATION && "ring-1 ring-electric/30"
+                      timeLeft < MICRO_COMMIT_DURATION && "ring-1 ring-electric/30"
                     )}
                   >
                     <Timer className="h-4 w-4 mr-2" />
-                    {timeLeft < TIMER_DURATION
+                    {timeLeft < MICRO_COMMIT_DURATION
                       ? "Resume 2-Minute Micro-Commitment"
                       : "Start 2-Minute Micro-Commitment"}
                   </Button>
@@ -1059,7 +1091,6 @@ export default function Home() {
                   </Button>
                 )}
 
-                {/* Reset link */}
                 <button
                   onClick={resetWorkspace}
                   className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
@@ -1069,15 +1100,144 @@ export default function Home() {
                 </button>
               </div>
             </div>
+          ) : workspaceView === "victory" ? (
+            /* ── Victory Transition ── */
+            <div className="w-full max-w-md px-6 py-8 flex flex-col items-center gap-8 text-center">
+              {/* Glowing victory ring */}
+              <div className="relative">
+                <div className="h-24 w-24 rounded-full bg-electric/10 ring-2 ring-electric/30 flex items-center justify-center shadow-[0_0_40px_rgba(0,229,255,0.2)]">
+                  <CheckCircle2 className="h-10 w-10 text-electric" />
+                </div>
+                <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-electric shadow-[0_0_8px_rgba(0,229,255,0.6)]" />
+                <div className="absolute -bottom-1 -left-1 h-2 w-2 rounded-full bg-electric/60 shadow-[0_0_6px_rgba(0,229,255,0.4)]" />
+              </div>
+
+              {/* Victory message */}
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-white leading-tight">
+                  The hardest part is officially over.
+                </h2>
+                <p className="text-lg text-electric/90 font-medium">
+                  Momentum is on your side.
+                </p>
+              </div>
+
+              {/* Task summary */}
+              <div className="w-full rounded-xl bg-surface ring-1 ring-white/[0.06] px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-electric/10">
+                    <Zap className="h-4 w-4 text-electric" />
+                  </div>
+                  <div className="text-left min-w-0 flex-1">
+                    <p className="text-sm font-medium text-white truncate">
+                      {taskInput}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      2:00 completed · Friction {currentFriction}/10
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Two action buttons */}
+              <div className="flex flex-col gap-3 w-full max-w-xs">
+                {/* Lock In — primary */}
+                <Button
+                  onClick={handleLockIn}
+                  className={cn(
+                    "w-full h-13 text-sm font-bold tracking-wider uppercase",
+                    "bg-electric text-black hover:bg-electric/90",
+                    "shadow-[0_0_24px_rgba(0,229,255,0.25)] hover:shadow-[0_0_40px_rgba(0,229,255,0.4)]",
+                    "transition-all duration-300"
+                  )}
+                >
+                  <Brain className="h-4 w-4 mr-2" />
+                  Lock In (Start 20-Min Deep Work)
+                </Button>
+
+                {/* Victory Lap — secondary */}
+                <Button
+                  onClick={handleVictoryLap}
+                  variant="outline"
+                  className={cn(
+                    "w-full h-12 text-sm font-bold tracking-wider uppercase",
+                    "bg-transparent text-emerald-400 border-emerald-400/25 hover:bg-emerald-400/10 hover:border-emerald-400/40",
+                    "transition-all duration-300"
+                  )}
+                >
+                  <Flag className="h-4 w-4 mr-2" />
+                  Victory Lap (Stop Here)
+                </Button>
+              </div>
+            </div>
+          ) : workspaceView === "deepWork" ? (
+            /* ── 20-Min Deep Work Timer ── */
+            <div className="w-full max-w-xl px-6 py-8 flex flex-col items-center gap-8">
+              {/* Context label */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-electric/[0.07] ring-1 ring-electric/20">
+                <Brain className="h-3.5 w-3.5 text-electric" />
+                <span className="text-[11px] font-semibold tracking-widest uppercase text-electric">
+                  Deep Work Session
+                </span>
+              </div>
+
+              <CircularTimer
+                timeLeft={timeLeft}
+                totalTime={DEEP_WORK_DURATION}
+                isRunning={isRunning}
+                taskName={taskInput}
+                frictionLevel={currentFriction}
+                phaseLabel="Deep Work · 20 Minutes"
+              />
+
+              <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+                {!isRunning ? (
+                  <Button
+                    onClick={startTimer}
+                    className={cn(
+                      "w-full h-13 text-sm font-bold tracking-wider uppercase",
+                      "bg-electric text-black hover:bg-electric/90",
+                      "shadow-[0_0_24px_rgba(0,229,255,0.25)] hover:shadow-[0_0_40px_rgba(0,229,255,0.4)]",
+                      "transition-all duration-300",
+                      timeLeft < DEEP_WORK_DURATION && "ring-1 ring-electric/30"
+                    )}
+                  >
+                    <Brain className="h-4 w-4 mr-2" />
+                    {timeLeft < DEEP_WORK_DURATION
+                      ? "Resume Deep Work"
+                      : "Start 20-Minute Focus"}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={pauseTimer}
+                    variant="outline"
+                    className={cn(
+                      "w-full h-13 text-sm font-bold tracking-wider uppercase",
+                      "bg-transparent text-electric border-electric/30 hover:bg-electric/10 hover:border-electric/50",
+                      "transition-all duration-300"
+                    )}
+                  >
+                    Pause
+                  </Button>
+                )}
+
+                <button
+                  onClick={handleVictoryLap}
+                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                >
+                  <Flag className="h-3 w-3" />
+                  Stop early & claim victory
+                </button>
+              </div>
+            </div>
           ) : (
-            /* ── Complete View ── */
+            /* ── Deep Work Complete ── */
             <div className="w-full max-w-md px-6 py-8 flex flex-col items-center gap-6 text-center">
-              {/* Trophy animation */}
+              {/* Trophy */}
               <div className="relative">
                 <div className="h-28 w-28 rounded-full bg-electric/10 ring-2 ring-electric/30 flex items-center justify-center shadow-[0_0_40px_rgba(0,229,255,0.2)]">
                   <Trophy className="h-12 w-12 text-electric" />
                 </div>
-                {/* Sparkle dots */}
                 <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-electric shadow-[0_0_8px_rgba(0,229,255,0.6)]" />
                 <div className="absolute -bottom-2 -left-2 h-2 w-2 rounded-full bg-electric/60 shadow-[0_0_6px_rgba(0,229,255,0.4)]" />
                 <div className="absolute top-2 -left-3 h-1.5 w-1.5 rounded-full bg-electric/40" />
@@ -1085,11 +1245,11 @@ export default function Home() {
 
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-white">
-                  Friction Crushed.
+                  Deep Work Complete.
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  You committed to 2 minutes and delivered. That&apos;s how
-                  momentum starts.
+                  22 minutes of pure focus. You didn&apos;t just start — you
+                  followed through. That&apos;s rare.
                 </p>
               </div>
 
@@ -1098,9 +1258,9 @@ export default function Home() {
                 <CardContent className="p-4">
                   <div className="grid grid-cols-3 gap-3">
                     <div className="text-center">
-                      <p className="text-lg font-bold text-electric">2:00</p>
+                      <p className="text-lg font-bold text-electric">22:00</p>
                       <p className="text-[10px] text-muted-foreground">
-                        Committed
+                        Total Focus
                       </p>
                     </div>
                     <div className="text-center border-x border-white/[0.06]">
@@ -1108,7 +1268,7 @@ export default function Home() {
                         {currentFriction}/10
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        Resistance
+                        Original Friction
                       </p>
                     </div>
                     <div className="text-center">
@@ -1123,10 +1283,9 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              {/* Action buttons */}
               <div className="flex flex-col gap-3 w-full max-w-xs">
                 <Button
-                  onClick={resetWorkspace}
+                  onClick={handleDeepComplete}
                   className={cn(
                     "w-full h-12 text-sm font-bold tracking-wider uppercase",
                     "bg-electric text-black hover:bg-electric/90",
@@ -1139,14 +1298,17 @@ export default function Home() {
                 </Button>
                 <button
                   onClick={() => {
-                    setTimeLeft(TIMER_DURATION);
+                    setTimerDuration(DEEP_WORK_DURATION);
+                    setTimeLeft(DEEP_WORK_DURATION);
+                    remainingRef.current = DEEP_WORK_DURATION;
+                    startTimeRef.current = null;
                     setIsRunning(false);
-                    setWorkspaceView("timer");
+                    setWorkspaceView("deepWork");
                   }}
                   className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1.5 justify-center"
                 >
                   <RotateCcw className="h-3 w-3" />
-                  Re-run same task
+                  Re-run deep work
                 </button>
               </div>
             </div>
