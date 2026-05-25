@@ -16,6 +16,9 @@ import {
   ArrowLeft,
   RotateCcw,
   Trophy,
+  BookOpen,
+  Eye,
+  Terminal,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -125,6 +128,149 @@ const FRICTION_LABELS: Record<number, string> = {
   9: "Brutal",
   10: "Pure Dread",
 };
+
+// ─── Micro-Commitment Algorithm ─────────────────────────────────────────────
+
+type FrictionTier = "low" | "moderate" | "high";
+
+interface MicroCommitment {
+  tier: FrictionTier;
+  label: string;
+  action: string;
+  icon: React.ElementType;
+}
+
+/**
+ * Core algorithmic logic: intercepts the user's friction rating (1-10)
+ * and generates a tailored Micro-Commitment Step — a bite-sized,
+ * psychologically-calibrated instruction designed to bypass the
+ * specific type of resistance the user is experiencing.
+ *
+ * Low friction (1-4):  The barrier is shallow. A gentle nudge to simply
+ *                      open materials and glance at the first page/line.
+ * Moderate (5-7):     A mental block has formed. The strategy is to
+ *                      eliminate all distractions and force a 60-second
+ *                      stare-down with the problem.
+ * High dread (8-10):  The entire project feels overwhelming. The ONLY
+ *                      permissible action is typing one single sentence
+ *                      or comment — nothing else matters.
+ */
+function generateMicroCommitment(frictionRating: number): MicroCommitment {
+  if (frictionRating <= 4) {
+    return {
+      tier: "low",
+      label: "Low resistance detected",
+      action:
+        "Open your materials and review the absolute first page or line.",
+      icon: BookOpen,
+    };
+  }
+
+  if (frictionRating <= 7) {
+    return {
+      tier: "moderate",
+      label: "Moderate mental block",
+      action:
+        "Sit down, close all unrelated tabs, and spend exactly 60 seconds looking at the problem.",
+      icon: Eye,
+    };
+  }
+
+  return {
+    tier: "high",
+    label: "Extreme friction",
+    action:
+      "Do not think about the whole project. Your ONLY goal for the next 2 minutes is to type one single sentence or comment line. Nothing else matters.",
+    icon: Terminal,
+  };
+}
+
+// ─── Micro-Commitment Card Component ────────────────────────────────────────
+
+const TIER_STYLES: Record<
+  FrictionTier,
+  {
+    container: string;
+    border: string;
+    iconBg: string;
+    iconColor: string;
+    labelColor: string;
+    dotColor: string;
+  }
+> = {
+  low: {
+    container: "bg-emerald-400/[0.04]",
+    border: "ring-emerald-400/20",
+    iconBg: "bg-emerald-400/10",
+    iconColor: "text-emerald-400",
+    labelColor: "text-emerald-400",
+    dotColor: "bg-emerald-400",
+  },
+  moderate: {
+    container: "bg-amber-400/[0.04]",
+    border: "ring-amber-400/20",
+    iconBg: "bg-amber-400/10",
+    iconColor: "text-amber-400",
+    labelColor: "text-amber-400",
+    dotColor: "bg-amber-400",
+  },
+  high: {
+    container: "bg-red-400/[0.04]",
+    border: "ring-red-400/15",
+    iconBg: "bg-red-400/10",
+    iconColor: "text-red-400",
+    labelColor: "text-red-400",
+    dotColor: "bg-red-400",
+  },
+};
+
+function MicroCommitmentCard({
+  frictionRating,
+}: {
+  frictionRating: number;
+}) {
+  const { tier, label, action, icon: Icon } =
+    generateMicroCommitment(frictionRating);
+  const styles = TIER_STYLES[tier];
+
+  return (
+    <div
+      className={cn(
+        "w-full max-w-sm rounded-xl px-5 py-4 ring-1",
+        styles.container,
+        styles.border
+      )}
+    >
+      {/* Header row */}
+      <div className="flex items-center gap-2.5 mb-2.5">
+        <div
+          className={cn(
+            "flex items-center justify-center h-7 w-7 rounded-lg",
+            styles.iconBg
+          )}
+        >
+          <Icon className={cn("h-3.5 w-3.5", styles.iconColor)} />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className={cn("h-1.5 w-1.5 rounded-full", styles.dotColor)} />
+          <span
+            className={cn(
+              "text-[11px] font-semibold tracking-widest uppercase",
+              styles.labelColor
+            )}
+          >
+            {label}
+          </span>
+        </div>
+      </div>
+
+      {/* Action instruction */}
+      <p className="text-[13px] leading-relaxed text-white/80 pl-[38px]">
+        {action}
+      </p>
+    </div>
+  );
+}
 
 // ─── Helper Components ──────────────────────────────────────────────────────
 
@@ -868,6 +1014,9 @@ export default function Home() {
                 <ArrowLeft className="h-3 w-3 group-hover:-translate-x-0.5 transition-transform" />
                 Back to form
               </button>
+
+              {/* Micro-Commitment Instruction */}
+              <MicroCommitmentCard frictionRating={currentFriction} />
 
               {/* Circular Timer */}
               <CircularTimer
