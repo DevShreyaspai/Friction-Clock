@@ -54,111 +54,21 @@ interface Task {
   elapsed: string;
 }
 
+type FrictionTier = "low" | "moderate" | "high";
+
+interface MicroCommitment {
+  tier: FrictionTier;
+  label: string;
+  action: string;
+  icon: React.ElementType;
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const MICRO_COMMIT_DURATION = 120; // 2 minutes
-const DEEP_WORK_DURATION = 1200; // 20 minutes
-
-// ─── LocalStorage Keys ───────────────────────────────────────────────────
-
+const MICRO_COMMIT_DURATION = 120; // 2 minutes in seconds
+const DEEP_WORK_DURATION = 1200; // 20 minutes in seconds
 const LS_TASKS_KEY = "friction-clock-tasks";
 const LS_STREAK_KEY = "friction-clock-streak";
-
-/**
- * Safely read and parse JSON from localStorage.
- * Returns `null` if the key doesn't exist or the data is corrupt.
- */
-function loadFromStorage<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-/**
- * Safely serialize and write JSON to localStorage.
- */
-function saveToStorage<T>(key: string, value: T): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Storage full or blocked — fail silently
-  }
-}
-
-const INITIAL_TASKS: Task[] = [
-  {
-    id: "1",
-    title: "Refactor auth middleware",
-    status: "active",
-    friction: 4,
-    category: "Engineering",
-    elapsed: "1h 23m",
-  },
-  {
-    id: "2",
-    title: "Fix CI pipeline flakiness",
-    status: "active",
-    friction: 5,
-    category: "DevOps",
-    elapsed: "2h 10m",
-  },
-  {
-    id: "3",
-    title: "Migrate legacy API routes",
-    status: "active",
-    friction: 3,
-    category: "Engineering",
-    elapsed: "45m",
-  },
-  {
-    id: "4",
-    title: "Resolve dependency conflicts",
-    status: "active",
-    friction: 2,
-    category: "Engineering",
-    elapsed: "18m",
-  },
-  {
-    id: "5",
-    title: "Update onboarding flow copy",
-    status: "completed",
-    friction: 1,
-    category: "Product",
-    elapsed: "32m",
-  },
-  {
-    id: "6",
-    title: "Fix dark mode token issues",
-    status: "completed",
-    friction: 2,
-    category: "Design",
-    elapsed: "1h 05m",
-  },
-  {
-    id: "7",
-    title: "Optimize image pipeline",
-    status: "completed",
-    friction: 3,
-    category: "Performance",
-    elapsed: "2h 47m",
-  },
-  {
-    id: "8",
-    title: "Audit third-party scripts",
-    status: "completed",
-    friction: 1,
-    category: "Security",
-    elapsed: "55m",
-  },
-];
-
-// ─── Friction Slider Labels ─────────────────────────────────────────────────
 
 const FRICTION_LABELS: Record<number, string> = {
   1: "Trivial",
@@ -172,49 +82,6 @@ const FRICTION_LABELS: Record<number, string> = {
   9: "Brutal",
   10: "Pure Dread",
 };
-
-// ─── Micro-Commitment Algorithm ─────────────────────────────────────────────
-
-type FrictionTier = "low" | "moderate" | "high";
-
-interface MicroCommitment {
-  tier: FrictionTier;
-  label: string;
-  action: string;
-  icon: React.ElementType;
-}
-
-function generateMicroCommitment(frictionRating: number): MicroCommitment {
-  if (frictionRating <= 4) {
-    return {
-      tier: "low",
-      label: "Low resistance detected",
-      action:
-        "Open your materials and review the absolute first page or line.",
-      icon: BookOpen,
-    };
-  }
-
-  if (frictionRating <= 7) {
-    return {
-      tier: "moderate",
-      label: "Moderate mental block",
-      action:
-        "Sit down, close all unrelated tabs, and spend exactly 60 seconds looking at the problem.",
-      icon: Eye,
-    };
-  }
-
-  return {
-    tier: "high",
-    label: "Extreme friction",
-    action:
-      "Do not think about the whole project. Your ONLY goal for the next 2 minutes is to type one single sentence or comment line. Nothing else matters.",
-    icon: Terminal,
-  };
-}
-
-// ─── Micro-Commitment Card Component ────────────────────────────────────────
 
 const TIER_STYLES: Record<
   FrictionTier,
@@ -253,6 +120,127 @@ const TIER_STYLES: Record<
   },
 };
 
+// ─── Pure Helpers ───────────────────────────────────────────────────────────
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? fallback : (JSON.parse(raw) as T);
+  } catch {
+    return fallback;
+  }
+}
+
+function saveToStorage<T>(key: string, value: T): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage full or blocked — fail silently
+  }
+}
+
+function generateMicroCommitment(frictionRating: number): MicroCommitment {
+  if (frictionRating <= 4) {
+    return {
+      tier: "low",
+      label: "Low resistance detected",
+      action: "Open your materials and review the absolute first page or line.",
+      icon: BookOpen,
+    };
+  }
+  if (frictionRating <= 7) {
+    return {
+      tier: "moderate",
+      label: "Moderate mental block",
+      action:
+        "Sit down, close all unrelated tabs, and spend exactly 60 seconds looking at the problem.",
+      icon: Eye,
+    };
+  }
+  return {
+    tier: "high",
+    label: "Extreme friction",
+    action:
+      "Do not think about the whole project. Your ONLY goal for the next 2 minutes is to type one single sentence or comment line. Nothing else matters.",
+    icon: Terminal,
+  };
+}
+
+/** Generate SVG tick marks for the circular timer face */
+function renderTickMarks(
+  cx: number,
+  cy: number,
+  radius: number,
+  majorInner: number,
+  minorInner: number,
+  outerOffset: number,
+) {
+  const outerR = radius - outerOffset;
+  return Array.from({ length: 60 }, (_, i) => {
+    const angle = (i * 6 * Math.PI) / 180;
+    const isMajor = i % 5 === 0;
+    const innerR = radius - (isMajor ? majorInner : minorInner);
+    return (
+      <line
+        key={i}
+        x1={cx + innerR * Math.cos(angle)}
+        y1={cy + innerR * Math.sin(angle)}
+        x2={cx + outerR * Math.cos(angle)}
+        y2={cy + outerR * Math.sin(angle)}
+        stroke={isMajor ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)"}
+        strokeWidth={isMajor ? 1.5 : 0.5}
+      />
+    );
+  });
+}
+
+function formatTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getFrictionColor(friction: number): string {
+  if (friction <= 3) return "text-emerald-400";
+  if (friction <= 5) return "text-amber-400";
+  if (friction <= 7) return "text-orange-400";
+  return "text-red-400";
+}
+
+function getFrictionPillStyle(friction: number): string {
+  if (friction <= 3) return "bg-emerald-400/10 text-emerald-400";
+  if (friction <= 5) return "bg-amber-400/10 text-amber-400";
+  if (friction <= 7) return "bg-orange-400/10 text-orange-400";
+  return "bg-red-400/10 text-red-400";
+}
+
+function getFrictionDotColor(friction: number): string {
+  if (friction <= 3) return "bg-emerald-400";
+  if (friction <= 5) return "bg-amber-400";
+  if (friction <= 7) return "bg-orange-400";
+  return "bg-red-400";
+}
+
+// ─── Sub-Components ─────────────────────────────────────────────────────────
+
+function FrictionDots({ level }: { level: number }) {
+  return (
+    <div className="flex items-center gap-1">
+      {Array.from({ length: 5 }, (_, i) => (
+        <div
+          key={i}
+          className={cn(
+            "h-1.5 w-1.5 rounded-full transition-colors",
+            i < level ? "bg-electric" : "bg-white/10",
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
 function MicroCommitmentCard({
   frictionRating,
 }: {
@@ -267,14 +255,14 @@ function MicroCommitmentCard({
       className={cn(
         "w-full max-w-sm rounded-xl px-5 py-4 ring-1",
         styles.container,
-        styles.border
+        styles.border,
       )}
     >
       <div className="flex items-center gap-2.5 mb-2.5">
         <div
           className={cn(
             "flex items-center justify-center h-7 w-7 rounded-lg",
-            styles.iconBg
+            styles.iconBg,
           )}
         >
           <Icon className={cn("h-3.5 w-3.5", styles.iconColor)} />
@@ -284,7 +272,7 @@ function MicroCommitmentCard({
           <span
             className={cn(
               "text-[11px] font-semibold tracking-widest uppercase",
-              styles.labelColor
+              styles.labelColor,
             )}
           >
             {label}
@@ -294,24 +282,6 @@ function MicroCommitmentCard({
       <p className="text-[13px] leading-relaxed text-white/80 pl-[38px]">
         {action}
       </p>
-    </div>
-  );
-}
-
-// ─── Helper Components ──────────────────────────────────────────────────────
-
-function FrictionDots({ level }: { level: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            "h-1.5 w-1.5 rounded-full transition-colors",
-            i < level ? "bg-electric" : "bg-white/10"
-          )}
-        />
-      ))}
     </div>
   );
 }
@@ -334,7 +304,7 @@ function TaskItem({
         "group w-full text-left px-4 py-3 rounded-lg transition-all duration-200",
         "hover:bg-surface-raised",
         isSelected && "bg-surface-raised ring-1 ring-electric/30",
-        isCompleted && "opacity-60"
+        isCompleted && "opacity-60",
       )}
     >
       <div className="flex items-start gap-3">
@@ -352,7 +322,7 @@ function TaskItem({
                 "text-sm font-medium truncate",
                 isCompleted
                   ? "line-through text-muted-foreground"
-                  : "text-white"
+                  : "text-white",
               )}
             >
               {task.title}
@@ -360,7 +330,7 @@ function TaskItem({
             <ChevronRight
               className={cn(
                 "h-3.5 w-3.5 shrink-0 text-white/20 transition-all",
-                "group-hover:text-electric group-hover:translate-x-0.5"
+                "group-hover:text-electric group-hover:translate-x-0.5",
               )}
             />
           </div>
@@ -381,8 +351,6 @@ function TaskItem({
     </button>
   );
 }
-
-// ─── Circular Timer Component ───────────────────────────────────────────────
 
 function CircularTimer({
   timeLeft,
@@ -409,12 +377,71 @@ function CircularTimer({
   const progress = timeLeft / totalTime;
   const strokeDashoffset = circumference * (1 - progress);
   const mobileStrokeDashoffset = mobileCircumference * (1 - progress);
-
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-  const displayTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-
+  const displayTime = formatTime(timeLeft);
   const label = phaseLabel ?? "Micro-Commitment";
+  const statusText = isRunning
+    ? "Focusing"
+    : timeLeft === totalTime
+      ? "Ready"
+      : "Paused";
+
+  const renderTimerFace = (
+    s: number,
+    r: number,
+    c: number,
+    offset: number,
+    dotR: number,
+    majorInner: number,
+    minorInner: number,
+    outerOffset: number,
+  ) => (
+    <svg
+      width={s}
+      height={s}
+      viewBox={`0 0 ${s} ${s}`}
+      className="transform -rotate-90"
+    >
+      {/* Background track */}
+      <circle
+        cx={s / 2}
+        cy={s / 2}
+        r={r}
+        fill="none"
+        stroke="rgba(255,255,255,0.05)"
+        strokeWidth={strokeWidth}
+      />
+      {/* Tick marks */}
+      {renderTickMarks(s / 2, s / 2, r, majorInner, minorInner, outerOffset)}
+      {/* Progress arc */}
+      <circle
+        cx={s / 2}
+        cy={s / 2}
+        r={r}
+        fill="none"
+        stroke="#00E5FF"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={offset}
+        className="transition-[stroke-dashoffset] duration-1000 ease-linear"
+        style={{ filter: "drop-shadow(0 0 6px rgba(0,229,255,0.4))" }}
+      />
+      {/* Leading dot */}
+      {timeLeft > 0 && (
+        <circle
+          cx={
+            s / 2 + r * Math.cos(-Math.PI / 2 + 2 * Math.PI * progress)
+          }
+          cy={
+            s / 2 + r * Math.sin(-Math.PI / 2 + 2 * Math.PI * progress)
+          }
+          r={dotR}
+          fill="#00E5FF"
+          style={{ filter: "drop-shadow(0 0 8px rgba(0,229,255,0.8))" }}
+        />
+      )}
+    </svg>
+  );
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -434,68 +461,64 @@ function CircularTimer({
         </div>
       </div>
 
-      {/* SVG Timer Ring — desktop */}
-      <div className="relative hidden sm:block" style={{ width: size, height: size }}>
-        <svg
-          width={size}
-          height={size}
-          viewBox={`0 0 ${size} ${size}`}
-          className="transform -rotate-90"
-        >
-          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} />
-          {Array.from({ length: 60 }).map((_, i) => {
-            const angle = (i * 6 * Math.PI) / 180;
-            const isMajor = i % 5 === 0;
-            const innerR = radius - (isMajor ? 14 : 10);
-            const outerR = radius - 8;
-            return (
-              <line key={i} x1={size / 2 + innerR * Math.cos(angle)} y1={size / 2 + innerR * Math.sin(angle)} x2={size / 2 + outerR * Math.cos(angle)} y2={size / 2 + outerR * Math.sin(angle)} stroke={isMajor ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)"} strokeWidth={isMajor ? 1.5 : 0.5} />
-            );
-          })}
-          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#00E5FF" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="transition-[stroke-dashoffset] duration-1000 ease-linear" style={{ filter: "drop-shadow(0 0 6px rgba(0,229,255,0.4))" }} />
-          {timeLeft > 0 && (
-            <circle cx={size / 2 + radius * Math.cos(-Math.PI / 2 + 2 * Math.PI * progress)} cy={size / 2 + radius * Math.sin(-Math.PI / 2 + 2 * Math.PI * progress)} r={4} fill="#00E5FF" style={{ filter: "drop-shadow(0 0 8px rgba(0,229,255,0.8))" }} />
-          )}
-        </svg>
+      {/* Desktop timer */}
+      <div
+        className="relative hidden sm:block"
+        style={{ width: size, height: size }}
+      >
+        {renderTimerFace(
+          size,
+          radius,
+          circumference,
+          strokeDashoffset,
+          4,
+          14,
+          10,
+          8,
+        )}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-5xl font-bold tracking-wider text-white" style={{ fontFamily: "var(--font-geist-mono)" }}>{displayTime}</span>
-          <span className="text-[10px] text-muted-foreground tracking-widest uppercase mt-2">{isRunning ? "Focusing" : timeLeft === totalTime ? "Ready" : "Paused"}</span>
+          <span
+            className="text-5xl font-bold tracking-wider text-white"
+            style={{ fontFamily: "var(--font-geist-mono)" }}
+          >
+            {displayTime}
+          </span>
+          <span className="text-[10px] text-muted-foreground tracking-widest uppercase mt-2">
+            {statusText}
+          </span>
         </div>
       </div>
 
-      {/* SVG Timer Ring — mobile (smaller) */}
-      <div className="relative sm:hidden" style={{ width: mobileSize, height: mobileSize }}>
-        <svg
-          width={mobileSize}
-          height={mobileSize}
-          viewBox={`0 0 ${mobileSize} ${mobileSize}`}
-          className="transform -rotate-90"
-        >
-          <circle cx={mobileSize / 2} cy={mobileSize / 2} r={mobileRadius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} />
-          {Array.from({ length: 60 }).map((_, i) => {
-            const angle = (i * 6 * Math.PI) / 180;
-            const isMajor = i % 5 === 0;
-            const innerR = mobileRadius - (isMajor ? 10 : 7);
-            const outerR = mobileRadius - 5;
-            return (
-              <line key={i} x1={mobileSize / 2 + innerR * Math.cos(angle)} y1={mobileSize / 2 + innerR * Math.sin(angle)} x2={mobileSize / 2 + outerR * Math.cos(angle)} y2={mobileSize / 2 + outerR * Math.sin(angle)} stroke={isMajor ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)"} strokeWidth={isMajor ? 1 : 0.5} />
-            );
-          })}
-          <circle cx={mobileSize / 2} cy={mobileSize / 2} r={mobileRadius} fill="none" stroke="#00E5FF" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={mobileCircumference} strokeDashoffset={mobileStrokeDashoffset} className="transition-[stroke-dashoffset] duration-1000 ease-linear" style={{ filter: "drop-shadow(0 0 6px rgba(0,229,255,0.4))" }} />
-          {timeLeft > 0 && (
-            <circle cx={mobileSize / 2 + mobileRadius * Math.cos(-Math.PI / 2 + 2 * Math.PI * progress)} cy={mobileSize / 2 + mobileRadius * Math.sin(-Math.PI / 2 + 2 * Math.PI * progress)} r={3} fill="#00E5FF" style={{ filter: "drop-shadow(0 0 8px rgba(0,229,255,0.8))" }} />
-          )}
-        </svg>
+      {/* Mobile timer */}
+      <div
+        className="relative sm:hidden"
+        style={{ width: mobileSize, height: mobileSize }}
+      >
+        {renderTimerFace(
+          mobileSize,
+          mobileRadius,
+          mobileCircumference,
+          mobileStrokeDashoffset,
+          3,
+          10,
+          7,
+          5,
+        )}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-4xl font-bold tracking-wider text-white" style={{ fontFamily: "var(--font-geist-mono)" }}>{displayTime}</span>
-          <span className="text-[9px] text-muted-foreground tracking-widest uppercase mt-1.5">{isRunning ? "Focusing" : timeLeft === totalTime ? "Ready" : "Paused"}</span>
+          <span
+            className="text-4xl font-bold tracking-wider text-white"
+            style={{ fontFamily: "var(--font-geist-mono)" }}
+          >
+            {displayTime}
+          </span>
+          <span className="text-[9px] text-muted-foreground tracking-widest uppercase mt-1.5">
+            {statusText}
+          </span>
         </div>
       </div>
     </div>
   );
 }
-
-// ─── Sidebar Content (shared between desktop & mobile) ───────────────────────
 
 function SidebarContent({
   tasks,
@@ -514,20 +537,18 @@ function SidebarContent({
   onAdd: () => void;
   onClearAll: () => void;
 }) {
+  const query = searchQuery.toLowerCase();
   const activeTasks = tasks.filter(
-    (t) =>
-      t.status === "active" &&
-      t.title.toLowerCase().includes(searchQuery.toLowerCase())
+    (t) => t.status === "active" && t.title.toLowerCase().includes(query),
   );
   const completedTasks = tasks.filter(
     (t) =>
-      t.status === "completed" &&
-      t.title.toLowerCase().includes(searchQuery.toLowerCase())
+      t.status === "completed" && t.title.toLowerCase().includes(query),
   );
 
   return (
     <>
-      {/* Sidebar Header */}
+      {/* Header */}
       <div className="px-4 pt-5 pb-3 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold tracking-widest uppercase text-muted-foreground">
@@ -615,14 +636,16 @@ function SidebarContent({
           {activeTasks.length === 0 && completedTasks.length === 0 && (
             <div className="px-4 py-8 text-center">
               <p className="text-xs text-muted-foreground">
-                No tasks match your search.
+                {tasks.length === 0
+                  ? "No tasks yet. Create one to get started."
+                  : "No tasks match your search."}
               </p>
             </div>
           )}
         </div>
       </ScrollArea>
 
-      {/* Sidebar Footer */}
+      {/* Footer */}
       <div className="border-t border-white/[0.06] bg-surface/50">
         <div className="px-4 py-3 flex items-center justify-between text-[10px] text-muted-foreground">
           <span>Total friction today</span>
@@ -630,7 +653,6 @@ function SidebarContent({
             {tasks.reduce((acc, t) => acc + t.friction, 0)} pts
           </span>
         </div>
-        {/* Clear All Data */}
         <div className="px-4 pb-3 pt-0">
           <button
             onClick={onClearAll}
@@ -647,64 +669,45 @@ function SidebarContent({
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
-let taskIdCounter = 100;
-
 export default function Home() {
-  // ── Dynamic state (hydrated from localStorage) ────────────────────────────
+  // ── Persisted state (hydrated from localStorage) ─────────────────────────
   const [tasks, setTasks] = useState<Task[]>(() =>
-    loadFromStorage<Task[]>(LS_TASKS_KEY, INITIAL_TASKS)
+    loadFromStorage<Task[]>(LS_TASKS_KEY, []),
   );
   const [dailyStreak, setDailyStreak] = useState<number>(() =>
-    loadFromStorage<number>(LS_STREAK_KEY, 7)
+    loadFromStorage<number>(LS_STREAK_KEY, 0),
   );
 
-  // Sidebar state
+  // ── UI state ─────────────────────────────────────────────────────────────
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // Workspace form state
+  // ── Workspace form state ─────────────────────────────────────────────────
   const [taskInput, setTaskInput] = useState("");
   const [frictionValue, setFrictionValue] = useState<number[]>([5]);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("form");
   const [showValidationError, setShowValidationError] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
 
-  // Timer state (shared between micro-commit & deep work)
+  // ── Timer state (shared between micro-commit & deep work) ────────────────
   const [timeLeft, setTimeLeft] = useState(MICRO_COMMIT_DURATION);
   const [timerDuration, setTimerDuration] = useState(MICRO_COMMIT_DURATION);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const remainingRef = useRef<number>(MICRO_COMMIT_DURATION);
+  const taskIdRef = useRef(0);
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-
-  const activeTasks = tasks.filter(
-    (t) =>
-      t.status === "active" &&
-      t.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const completedTasks = tasks.filter(
-    (t) =>
-      t.status === "completed" &&
-      t.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const selectedTask = tasks.find((t) => t.id === selectedTaskId);
+  // ── Derived ──────────────────────────────────────────────────────────────
+  const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null;
   const activeCount = tasks.filter((t) => t.status === "active").length;
   const completedCount = tasks.filter((t) => t.status === "completed").length;
   const currentFriction = frictionValue[0];
-  const frictionLabel = FRICTION_LABELS[currentFriction] || "";
-  const frictionColor =
-    currentFriction <= 3
-      ? "text-emerald-400"
-      : currentFriction <= 5
-        ? "text-amber-400"
-        : currentFriction <= 7
-          ? "text-orange-400"
-          : "text-red-400";
+  const frictionLabel = FRICTION_LABELS[currentFriction] ?? "";
+  const frictionColor = getFrictionColor(currentFriction);
 
-  // ── Timer Logic ────────────────────────────────────────────────────────────
+  // ── Timer Logic ──────────────────────────────────────────────────────────
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -728,12 +731,9 @@ export default function Home() {
       if (newTimeLeft <= 0) {
         clearTimer();
         setIsRunning(false);
-        // Route to the correct completion view
-        if (timerDuration === MICRO_COMMIT_DURATION) {
-          setWorkspaceView("victory");
-        } else {
-          setWorkspaceView("deepComplete");
-        }
+        setWorkspaceView(
+          timerDuration === MICRO_COMMIT_DURATION ? "victory" : "deepComplete",
+        );
       }
     }, 200);
   }, [timeLeft, timerDuration, clearTimer]);
@@ -757,8 +757,7 @@ export default function Home() {
     setFrictionValue([5]);
   }, [clearTimer]);
 
-  // ── LocalStorage Sync ─────────────────────────────────────────────────────
-  // Automatically persist tasks and streak whenever they change
+  // ── LocalStorage Sync ────────────────────────────────────────────────────
   useEffect(() => {
     saveToStorage(LS_TASKS_KEY, tasks);
   }, [tasks]);
@@ -772,7 +771,7 @@ export default function Home() {
     return () => clearTimer();
   }, [clearTimer]);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleCalibrate = () => {
     if (!taskInput.trim()) {
@@ -788,22 +787,23 @@ export default function Home() {
     setWorkspaceView("timer");
   };
 
-  /** Victory Lap: mark task as completed, increment streak, reset form */
-  const handleVictoryLap = () => {
+  const addCompletedTask = (elapsed: string) => {
     const newTask: Task = {
-      id: String(++taskIdCounter),
+      id: String(++taskIdRef.current),
       title: taskInput.trim(),
       status: "completed",
       friction: currentFriction,
       category: "Personal",
-      elapsed: "2:00",
+      elapsed,
     };
     setTasks((prev) => [newTask, ...prev]);
     setDailyStreak((prev) => prev + 1);
     resetWorkspace();
   };
 
-  /** Lock In: transition to 20-min deep work countdown */
+  const handleVictoryLap = () => addCompletedTask("2:00");
+  const handleDeepComplete = () => addCompletedTask("22:00");
+
   const handleLockIn = () => {
     clearTimer();
     setTimerDuration(DEEP_WORK_DURATION);
@@ -814,46 +814,29 @@ export default function Home() {
     setWorkspaceView("deepWork");
   };
 
-  /** Deep work complete: mark task as completed, increment streak, reset form */
-  const handleDeepComplete = () => {
-    const newTask: Task = {
-      id: String(++taskIdCounter),
-      title: taskInput.trim(),
-      status: "completed",
-      friction: currentFriction,
-      category: "Personal",
-      elapsed: "22:00",
-    };
-    setTasks((prev) => [newTask, ...prev]);
-    setDailyStreak((prev) => prev + 1);
-    resetWorkspace();
-  };
-
-  /** Clear all persisted data and reset UI to zero */
   const handleClearAllData = () => {
     const confirmed = window.confirm(
-      "This will permanently erase all your tasks and streak data. Are you sure?"
+      "This will permanently erase all your tasks and streak data. Are you sure?",
     );
     if (!confirmed) return;
 
     localStorage.removeItem(LS_TASKS_KEY);
     localStorage.removeItem(LS_STREAK_KEY);
-    setTasks(INITIAL_TASKS);
-    setDailyStreak(7);
+    setTasks([]);
+    setDailyStreak(0);
     setSelectedTaskId(null);
     resetWorkspace();
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen-safe flex flex-col bg-black">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
+      {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-black/80 backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 md:px-6 py-3">
-          {/* Left: Brand + Mobile sidebar toggle */}
+          {/* Left: Brand + Mobile toggle */}
           <div className="flex items-center gap-3">
-            {/* Mobile sidebar toggle (visible < md) */}
             <button
               onClick={() => setMobileSidebarOpen(true)}
               className="md:hidden flex items-center justify-center h-8 w-8 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
@@ -917,12 +900,14 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ── Main Content ────────────────────────────────────────────────── */}
+      {/* ── Main Content ─────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col md:flex-row gap-0">
-
-        {/* ── Mobile Sidebar Sheet (< md) ────────────────────────────────── */}
+        {/* ── Mobile Sidebar Sheet ────────────────────────────────────────── */}
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-          <SheetContent side="left" className="w-[85vw] max-w-sm bg-black border-white/[0.06] p-0">
+          <SheetContent
+            side="left"
+            className="w-[85vw] max-w-sm bg-black border-white/[0.06] p-0"
+          >
             <SheetHeader className="px-4 pt-4 pb-2">
               <SheetTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground text-left">
                 Task Log
@@ -946,7 +931,7 @@ export default function Home() {
           </SheetContent>
         </Sheet>
 
-        {/* ── Desktop Sidebar (>= md) ───────────────────────────────────── */}
+        {/* ── Desktop Sidebar ────────────────────────────────────────────── */}
         <aside className="hidden md:flex w-full md:w-[30%] xl:w-[28%] border-r border-white/[0.06] flex-col min-h-0">
           <SidebarContent
             tasks={tasks}
@@ -959,7 +944,7 @@ export default function Home() {
           />
         </aside>
 
-        {/* ── Main Workspace ────────────────────────────────────────────── */}
+        {/* ── Main Workspace ─────────────────────────────────────────────── */}
         <section className="flex-1 flex items-center justify-center min-h-[50vh] lg:min-h-0">
           {selectedTask ? (
             /* ── Selected Task Detail View ── */
@@ -1078,15 +1063,13 @@ export default function Home() {
                             }
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleCalibrate();
-                            }
+                            if (e.key === "Enter") handleCalibrate();
                           }}
                           className={cn(
                             "h-11 text-sm bg-white/[0.03] text-white placeholder:text-muted-foreground/40 focus-visible:ring-electric/30 focus-visible:border-electric/30",
                             showValidationError
                               ? "border-red-400/50 ring-1 ring-red-400/20"
-                              : "border-white/[0.08]"
+                              : "border-white/[0.08]",
                           )}
                         />
                       </div>
@@ -1110,7 +1093,7 @@ export default function Home() {
                           <span
                             className={cn(
                               "text-2xl font-bold font-mono tabular-nums",
-                              frictionColor
+                              frictionColor,
                             )}
                           >
                             {currentFriction}
@@ -1147,25 +1130,13 @@ export default function Home() {
                         <div
                           className={cn(
                             "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
-                            currentFriction <= 3
-                              ? "bg-emerald-400/10 text-emerald-400"
-                              : currentFriction <= 5
-                                ? "bg-amber-400/10 text-amber-400"
-                                : currentFriction <= 7
-                                  ? "bg-orange-400/10 text-orange-400"
-                                  : "bg-red-400/10 text-red-400"
+                            getFrictionPillStyle(currentFriction),
                           )}
                         >
                           <div
                             className={cn(
                               "h-1.5 w-1.5 rounded-full",
-                              currentFriction <= 3
-                                ? "bg-emerald-400"
-                                : currentFriction <= 5
-                                  ? "bg-amber-400"
-                                  : currentFriction <= 7
-                                    ? "bg-orange-400"
-                                    : "bg-red-400"
+                              getFrictionDotColor(currentFriction),
                             )}
                           />
                           {frictionLabel}
@@ -1182,7 +1153,7 @@ export default function Home() {
                         "bg-electric text-black hover:bg-electric/90",
                         !taskInput.trim() && "opacity-40 cursor-not-allowed",
                         "shadow-[0_0_24px_rgba(0,229,255,0.2)] hover:shadow-[0_0_32px_rgba(0,229,255,0.35)]",
-                        "transition-all duration-300"
+                        "transition-all duration-300",
                       )}
                     >
                       <Zap className="h-4 w-4 mr-2" />
@@ -1232,7 +1203,8 @@ export default function Home() {
                       "bg-electric text-black hover:bg-electric/90",
                       "shadow-[0_0_24px_rgba(0,229,255,0.25)] hover:shadow-[0_0_40px_rgba(0,229,255,0.4)]",
                       "transition-all duration-300",
-                      timeLeft < MICRO_COMMIT_DURATION && "ring-1 ring-electric/30"
+                      timeLeft < MICRO_COMMIT_DURATION &&
+                        "ring-1 ring-electric/30",
                     )}
                   >
                     <Timer className="h-4 w-4 mr-2" />
@@ -1247,7 +1219,7 @@ export default function Home() {
                     className={cn(
                       "w-full h-13 text-sm font-bold tracking-wider uppercase",
                       "bg-transparent text-electric border-electric/30 hover:bg-electric/10 hover:border-electric/50",
-                      "transition-all duration-300"
+                      "transition-all duration-300",
                     )}
                   >
                     Pause
@@ -1304,28 +1276,26 @@ export default function Home() {
 
               {/* Two action buttons */}
               <div className="flex flex-col gap-3 w-full max-w-xs">
-                {/* Lock In — primary */}
                 <Button
                   onClick={handleLockIn}
                   className={cn(
                     "w-full h-13 text-sm font-bold tracking-wider uppercase",
                     "bg-electric text-black hover:bg-electric/90",
                     "shadow-[0_0_24px_rgba(0,229,255,0.25)] hover:shadow-[0_0_40px_rgba(0,229,255,0.4)]",
-                    "transition-all duration-300"
+                    "transition-all duration-300",
                   )}
                 >
                   <Brain className="h-4 w-4 mr-2" />
                   Lock In (Start 20-Min Deep Work)
                 </Button>
 
-                {/* Victory Lap — secondary */}
                 <Button
                   onClick={handleVictoryLap}
                   variant="outline"
                   className={cn(
                     "w-full h-12 text-sm font-bold tracking-wider uppercase",
                     "bg-transparent text-emerald-400 border-emerald-400/25 hover:bg-emerald-400/10 hover:border-emerald-400/40",
-                    "transition-all duration-300"
+                    "transition-all duration-300",
                   )}
                 >
                   <Flag className="h-4 w-4 mr-2" />
@@ -1336,7 +1306,6 @@ export default function Home() {
           ) : workspaceView === "deepWork" ? (
             /* ── 20-Min Deep Work Timer ── */
             <div className="w-full max-w-xl px-6 py-8 flex flex-col items-center gap-8">
-              {/* Context label */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-electric/[0.07] ring-1 ring-electric/20">
                 <Brain className="h-3.5 w-3.5 text-electric" />
                 <span className="text-[11px] font-semibold tracking-widest uppercase text-electric">
@@ -1362,7 +1331,7 @@ export default function Home() {
                       "bg-electric text-black hover:bg-electric/90",
                       "shadow-[0_0_24px_rgba(0,229,255,0.25)] hover:shadow-[0_0_40px_rgba(0,229,255,0.4)]",
                       "transition-all duration-300",
-                      timeLeft < DEEP_WORK_DURATION && "ring-1 ring-electric/30"
+                      timeLeft < DEEP_WORK_DURATION && "ring-1 ring-electric/30",
                     )}
                   >
                     <Brain className="h-4 w-4 mr-2" />
@@ -1377,7 +1346,7 @@ export default function Home() {
                     className={cn(
                       "w-full h-13 text-sm font-bold tracking-wider uppercase",
                       "bg-transparent text-electric border-electric/30 hover:bg-electric/10 hover:border-electric/50",
-                      "transition-all duration-300"
+                      "transition-all duration-300",
                     )}
                   >
                     Pause
@@ -1435,9 +1404,7 @@ export default function Home() {
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-emerald-400">
-                        +1
-                      </p>
+                      <p className="text-lg font-bold text-emerald-400">+1</p>
                       <p className="text-[10px] text-muted-foreground">
                         Streak
                       </p>
@@ -1453,7 +1420,7 @@ export default function Home() {
                     "w-full h-12 text-sm font-bold tracking-wider uppercase",
                     "bg-electric text-black hover:bg-electric/90",
                     "shadow-[0_0_24px_rgba(0,229,255,0.25)] hover:shadow-[0_0_32px_rgba(0,229,255,0.4)]",
-                    "transition-all duration-300"
+                    "transition-all duration-300",
                   )}
                 >
                   <Zap className="h-4 w-4 mr-2" />
@@ -1479,7 +1446,7 @@ export default function Home() {
         </section>
       </main>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
+      {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer className="mt-auto border-t border-white/[0.06] bg-black">
         <div className="px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
@@ -1487,7 +1454,7 @@ export default function Home() {
             <span className="tracking-wider uppercase">Friction Clock</span>
           </div>
           <div className="text-[10px] text-muted-foreground/30 font-mono">
-            v0.1.0
+            v1.0.0
           </div>
         </div>
       </footer>
