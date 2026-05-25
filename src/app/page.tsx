@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import {
   Clock,
   Flame,
@@ -667,10 +667,140 @@ function SidebarContent({
   );
 }
 
-// ─── Main Page ──────────────────────────────────────────────────────────────
+// ─── Skeleton Shell (SSR-safe, matches server output exactly) ────────────────
+
+function SkeletonShell() {
+  return (
+    <div className="min-h-screen-safe flex flex-col bg-black">
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-black/80 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-electric/10 ring-1 ring-electric/20">
+              <Clock className="h-4 w-4 text-electric" />
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-sm font-bold tracking-wide text-white uppercase">
+                Friction Clock
+              </h1>
+              <p className="text-[10px] text-muted-foreground tracking-widest uppercase">
+                Crush What Slows You Down
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-5">
+            <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-3 w-3 text-electric" />
+                <span>
+                  <span className="text-white font-semibold">0</span> Active
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                <span>
+                  <span className="text-white font-semibold">0</span> Done
+                </span>
+              </div>
+            </div>
+            <Separator
+              orientation="vertical"
+              className="h-6 bg-white/[0.06] hidden sm:block"
+            />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-electric/[0.07] ring-1 ring-electric/20">
+              <Flame className="h-4 w-4 text-electric" />
+              <div className="flex flex-col leading-none">
+                <span className="text-xs font-bold text-white">
+                  0-Day Streak
+                </span>
+                <span className="text-[9px] text-electric/70 tracking-wider uppercase">
+                  Keep Going
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 flex flex-col md:flex-row gap-0">
+        <aside className="hidden md:flex w-full md:w-[30%] xl:w-[28%] border-r border-white/[0.06] flex-col min-h-0">
+          <div className="px-4 pt-5 pb-3">
+            <h2 className="text-xs font-bold tracking-widest uppercase text-muted-foreground">
+              Task Log
+            </h2>
+          </div>
+          <Separator className="bg-white/[0.06]" />
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="space-y-3 w-full">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div
+                  key={i}
+                  className="h-12 rounded-lg bg-white/[0.02] animate-pulse"
+                />
+              ))}
+            </div>
+          </div>
+        </aside>
+        <section className="flex-1 flex items-center justify-center min-h-[50vh] lg:min-h-0">
+          <div className="w-full max-w-lg px-6 py-8">
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-electric/10 ring-1 ring-electric/20 mb-2">
+                <Zap className="h-5 w-5 text-electric" />
+              </div>
+              <div className="h-7 w-48 mx-auto rounded bg-white/[0.03] animate-pulse" />
+              <div className="h-4 w-64 mx-auto rounded bg-white/[0.02] animate-pulse" />
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="mt-auto border-t border-white/[0.06] bg-black">
+        <div className="px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
+            <Clock className="h-3 w-3" />
+            <span className="tracking-wider uppercase">Friction Clock</span>
+          </div>
+          <div className="text-[10px] text-muted-foreground/30 font-mono">
+            v1.0.0
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// ─── useHasMounted ──────────────────────────────────────────────────────────
+// Uses useSyncExternalStore to determine client mount status without any
+// setState-in-effect. The server snapshot returns false (skeleton), the
+// client snapshot returns true (real UI). React handles the transition
+// gracefully after hydration without a mismatch error.
+
+const emptySubscribe = () => () => {};
+
+function useHasMounted(): boolean {
+  return useSyncExternalStore(
+    emptySubscribe, // no external store to subscribe to — mount state is constant
+    () => true,     // client snapshot: always mounted
+    () => false,    // server snapshot: never mounted
+  );
+}
+
+// ─── Home: thin hydration gate ──────────────────────────────────────────────
+// Renders a static skeleton on the server so there is zero hydration mismatch.
+// On the client, useSyncExternalStore returns true and we mount <HomeClient />
+// which can safely read localStorage in its useState lazy initializers.
 
 export default function Home() {
-  // ── Persisted state (hydrated from localStorage) ─────────────────────────
+  const hasMounted = useHasMounted();
+
+  if (!hasMounted) return <SkeletonShell />;
+  return <HomeClient />;
+}
+
+// ─── HomeClient: full app (client-only, safe to read localStorage) ─────────
+
+function HomeClient() {
+  // ── Persisted state — lazy initializers read localStorage safely
+  //    because this component only renders after client mount ───────────────
   const [tasks, setTasks] = useState<Task[]>(() =>
     loadFromStorage<Task[]>(LS_TASKS_KEY, []),
   );
